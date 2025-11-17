@@ -41,3 +41,5 @@ yarn-error.*
 /android
 
 package-lock.json
+
+.idea
