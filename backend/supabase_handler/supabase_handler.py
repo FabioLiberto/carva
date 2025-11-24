@@ -42,7 +42,7 @@ class supabase_handler:
         })
         return auth_response
 
-    def get_public_key(self, kid):
+    def get_public_key(self, kid: str) -> Dict[str, Any]:
         print("Getting public key for kid:", kid)
         # show current JWKS kids
         current_kids = [k.get("kid") for k in self.jwks.get("keys", [])]
@@ -100,8 +100,44 @@ class supabase_handler:
                 )
                 print("JWT RSA/EC verification succeeded. Payload keys:", list(payload.keys()))
                 return payload  # JWT claims as dict
-                
+
         except JWTError as e:
             raise Exception(f"JWT verification failed: {e}")
         except Exception as e:
             raise Exception(f"JWT verification error: {e}")
+
+    def create_activity(self, activity_data: dict, user_id: str):
+        try:
+            activity_data["user_reference"] = user_id
+            response = self.supabase.table("activities").insert(activity_data).execute()
+            return response.data[0] if isinstance(response.data, list) and len(response.data) > 0 else None
+        except Exception as e:
+            raise Exception(f"Failed to create activity: {e}")
+
+    def get_user_activities(self, user_id: str):
+        try:
+            response = self.supabase.table("activities").select("*").eq("user_reference", user_id).execute()
+            return response.data
+        except Exception as e:
+            raise Exception(f"Failed to fetch activities: {e}")
+
+    def get_activity_by_id(self, activity_id: int, user_id: str):
+        try:
+            response = self.supabase.table("activities").select("*").eq("id", activity_id).eq("user_reference", user_id).execute()
+            return response.data[0] if isinstance(response.data, list) and len(response.data) > 0 else None
+        except Exception as e:
+            raise Exception(f"Failed to fetch activity: {e}")
+
+    def update_activity(self, activity_id: int, activity_data: dict, user_id: str):
+        try:
+            response = self.supabase.table("activities").update(activity_data).eq("id", activity_id).eq("user_reference", user_id).execute()
+            return response.data[0] if response.data else None
+        except Exception as e:
+            raise Exception(f"Failed to update activity: {e}")
+
+    def delete_activity(self, activity_id: int, user_id: str):
+        try:
+            response = self.supabase.table("activities").delete().eq("id", activity_id).eq("user_reference", user_id).execute()
+            return response.data
+        except Exception as e:
+            raise Exception(f"Failed to delete activity: {e}")
