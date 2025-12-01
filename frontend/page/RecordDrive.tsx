@@ -67,7 +67,18 @@ const RecordDriveScreen: React.FC<Props> = ({ onFinished, onSaved }) => {
     }, [latestPoint]);
 
     const distanceKm = distanceMeters / 1000;
-    const durationMinutes = durationSeconds / 60;
+
+    const formattedDuration = useMemo(() => {
+        const hours = Math.floor(durationSeconds / 3600);
+        const minutes = Math.floor((durationSeconds % 3600) / 60);
+        const seconds = durationSeconds % 60;
+
+        if (hours > 0) {
+            return `${hours}h ${minutes.toString().padStart(2, "0")}m`;
+        }
+
+        return `${minutes}:${seconds.toString().padStart(2, "0")} min`;
+    }, [durationSeconds]);
 
     const handleStart = async () => {
         try {
@@ -201,7 +212,7 @@ const RecordDriveScreen: React.FC<Props> = ({ onFinished, onSaved }) => {
                     </View>
                     <View style={styles.statBlock}>
                         <Text style={styles.statLabel}>Duration</Text>
-                        <Text style={styles.statValue}>{durationMinutes.toFixed(1)} min</Text>
+                        <Text style={styles.statValue}>{formattedDuration}</Text>
                     </View>
                     <View style={styles.statBlock}>
                         <Text style={styles.statLabel}>Avg speed</Text>
@@ -333,4 +344,3 @@ const styles = StyleSheet.create({
         fontWeight: "500",
     },
 });
-
