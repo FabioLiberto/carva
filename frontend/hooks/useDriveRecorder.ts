@@ -51,7 +51,7 @@ export function useDriveRecorder(): RecorderHook {
     const [error, setError] = useState<string | null>(null);
     const [startedAt, setStartedAt] = useState<number | null>(null);
     const [endedAt, setEndedAt] = useState<number | null>(null);
-    const [now, setNow] = useState(() => Date.now());
+    const [now, setNow] = useState<number>(Date.now());
 
     const watcherRef = useRef<Location.LocationSubscription | null>(null);
     const permissionGrantedRef = useRef(false);
@@ -73,6 +73,15 @@ export function useDriveRecorder(): RecorderHook {
             watcherRef.current = null;
         };
     }, []);
+
+    useEffect(() => {
+        if (state !== "recording") {
+            return;
+        }
+
+        const intervalId = setInterval(() => setNow(Date.now()), 1000);
+        return () => clearInterval(intervalId);
+    }, [state]);
 
     const addPoint = useCallback((location: Location.LocationObject) => {
         const {
@@ -114,6 +123,7 @@ export function useDriveRecorder(): RecorderHook {
         setError(null);
         setPoints([]);
         setStartedAt(Date.now());
+        setNow(Date.now());
         setEndedAt(null);
         setState("recording");
 
@@ -148,24 +158,13 @@ export function useDriveRecorder(): RecorderHook {
         }, 0);
     }, [points]);
 
-    useEffect(() => {
-        if (!startedAt || endedAt || state !== "recording") {
-            return;
-        }
-
-        setNow(Date.now());
-        const intervalId = setInterval(() => setNow(Date.now()), 1000);
-
-        return () => {
-            clearInterval(intervalId);
-        };
-    }, [startedAt, endedAt, state]);
-
     const durationSeconds = useMemo(() => {
         if (!startedAt) return 0;
-        const end = endedAt ?? now;
+        const lastPointTimestamp = points[points.length - 1]?.timestamp;
+        const currentTime = state === "recording" ? now : Date.now();
+        const end = endedAt ?? lastPointTimestamp ?? currentTime;
         return Math.max(0, Math.round((end - startedAt) / 1000));
-    }, [startedAt, endedAt, now]);
+    }, [startedAt, endedAt, state, points, now]);
 
     const avgSpeedKmh = useMemo(() => {
         if (durationSeconds === 0) return 0;
