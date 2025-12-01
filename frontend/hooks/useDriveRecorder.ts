@@ -160,9 +160,9 @@ export function useDriveRecorder(): RecorderHook {
 
     const durationSeconds = useMemo(() => {
         if (!startedAt) return 0;
-        const lastPointTimestamp = points[points.length - 1]?.timestamp;
         const currentTime = state === "recording" ? now : Date.now();
-        const end = endedAt ?? lastPointTimestamp ?? currentTime;
+        const lastPointTimestamp = points[points.length - 1]?.timestamp;
+        const end = endedAt ?? Math.max(currentTime, lastPointTimestamp ?? 0);
         return Math.max(0, Math.round((end - startedAt) / 1000));
     }, [startedAt, endedAt, state, points, now]);
 
