@@ -1,4 +1,4 @@
-import React, { useMemo } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import {
     View,
     Text,
@@ -7,7 +7,8 @@ import {
     Alert,
     ActivityIndicator,
 } from "react-native";
-import MapView, { Marker, Polyline, PROVIDER_GOOGLE, Region } from "react-native-maps";
+import MapView, { Polyline, PROVIDER_GOOGLE, Region } from "react-native-maps";
+import * as Location from "expo-location";
 import useDriveRecorder from "../hooks/useDriveRecorder";
 
 type Props = {
@@ -41,6 +42,7 @@ async function uploadActivity(payload: UploadPayload) {
 }
 
 const RecordDriveScreen: React.FC<Props> = ({ onFinished, onSaved }) => {
+    const [baseRegion, setBaseRegion] = useState<Region>(FALLBACK_REGION);
     const {
         state,
         points,
@@ -55,16 +57,46 @@ const RecordDriveScreen: React.FC<Props> = ({ onFinished, onSaved }) => {
         endedAt,
     } = useDriveRecorder();
 
+    useEffect(() => {
+        let active = true;
+
+        (async () => {
+            try {
+                const { status } = await Location.requestForegroundPermissionsAsync();
+                if (status !== "granted") return;
+
+                const position = await Location.getCurrentPositionAsync({
+                    accuracy: Location.Accuracy.Balanced,
+                });
+                if (!active) return;
+
+                const { latitude, longitude } = position.coords;
+                setBaseRegion({
+                    latitude,
+                    longitude,
+                    latitudeDelta: 0.01,
+                    longitudeDelta: 0.01,
+                });
+            } catch {
+                // keep fallback region
+            }
+        })();
+
+        return () => {
+            active = false;
+        };
+    }, []);
+
     const latestPoint = points[points.length - 1];
     const region = useMemo<Region>(() => {
-        if (!latestPoint) return FALLBACK_REGION;
+        if (!latestPoint) return baseRegion;
         return {
             latitude: latestPoint.latitude,
             longitude: latestPoint.longitude,
             latitudeDelta: 0.01,
             longitudeDelta: 0.01,
         };
-    }, [latestPoint]);
+    }, [latestPoint, baseRegion]);
 
     const distanceKm = distanceMeters / 1000;
 
@@ -173,20 +205,13 @@ const RecordDriveScreen: React.FC<Props> = ({ onFinished, onSaved }) => {
                 provider={PROVIDER_GOOGLE}
                 region={region}
                 customMapStyle={darkMapStyle}
+                showsUserLocation
             >
                 {points.length > 1 && (
                     <Polyline
                         coordinates={points.map((p) => ({ latitude: p.latitude, longitude: p.longitude }))}
                         strokeWidth={5}
                         strokeColor="#FF6A00"
-                    />
-                )}
-                {latestPoint && (
-                    <Marker
-                        coordinate={{
-                            latitude: latestPoint.latitude,
-                            longitude: latestPoint.longitude,
-                        }}
                     />
                 )}
             </MapView>
