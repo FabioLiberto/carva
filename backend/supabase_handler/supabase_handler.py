@@ -141,3 +141,91 @@ class supabase_handler:
             return response.data
         except Exception as e:
             raise Exception(f"Failed to delete activity: {e}")
+
+    # ROUTE management methods
+    def create_route(self, route_data: dict):
+        try:
+            response = self.supabase.table("ROUTE").insert(route_data).execute()
+            return response.data[0] if isinstance(response.data, list) and len(response.data) > 0 else None
+        except Exception as e:
+            raise Exception(f"Failed to create route: {e}")
+
+    def get_route_by_id(self, route_id: int):
+        try:
+            response = self.supabase.table("ROUTE").select("*").eq("id", route_id).execute()
+            return response.data[0] if isinstance(response.data, list) and len(response.data) > 0 else None
+        except Exception as e:
+            raise Exception(f"Failed to fetch route: {e}")
+
+    def get_all_routes(self):
+        try:
+            response = self.supabase.table("ROUTE").select("*").execute()
+            return response.data
+        except Exception as e:
+            raise Exception(f"Failed to fetch routes: {e}")
+
+    def update_route(self, route_id: int, route_data: dict):
+        try:
+            response = self.supabase.table("ROUTE").update(route_data).eq("id", route_id).execute()
+            return response.data[0] if response.data else None
+        except Exception as e:
+            raise Exception(f"Failed to update route: {e}")
+
+    def delete_route(self, route_id: int):
+        try:
+            response = self.supabase.table("ROUTE").delete().eq("id", route_id).execute()
+            return response.data
+        except Exception as e:
+            raise Exception(f"Failed to delete route: {e}")
+
+    # POINTS management methods
+    def create_point(self, point_data: dict):
+        try:
+            response = self.supabase.table("POINTS").insert(point_data).execute()
+            return response.data[0] if isinstance(response.data, list) and len(response.data) > 0 else None
+        except Exception as e:
+            raise Exception(f"Failed to create point: {e}")
+
+    def create_points_batch(self, points_data: list):
+        try:
+            response = self.supabase.table("POINTS").insert(points_data).execute()
+            return response.data
+        except Exception as e:
+            raise Exception(f"Failed to create points batch: {e}")
+
+    def get_point_by_id(self, point_id: int):
+        try:
+            response = self.supabase.table("POINTS").select("*").eq("id", point_id).execute()
+            return response.data[0] if isinstance(response.data, list) and len(response.data) > 0 else None
+        except Exception as e:
+            raise Exception(f"Failed to fetch point: {e}")
+
+    def get_points_by_route(self, route_id: int):
+        try:
+            # Assuming points have a route_id field that links to the route
+            response = self.supabase.table("POINTS").select("*").eq("id", route_id).execute()
+            return response.data
+        except Exception as e:
+            raise Exception(f"Failed to fetch points for route: {e}")
+
+    def update_point(self, point_id: int, point_data: dict):
+        try:
+            response = self.supabase.table("POINTS").update(point_data).eq("id", point_id).execute()
+            return response.data[0] if response.data else None
+        except Exception as e:
+            raise Exception(f"Failed to update point: {e}")
+
+    def delete_point(self, point_id: int):
+        try:
+            response = self.supabase.table("POINTS").delete().eq("id", point_id).execute()
+            return response.data
+        except Exception as e:
+            raise Exception(f"Failed to delete point: {e}")
+
+    def delete_points_by_route(self, route_id: int):
+        try:
+            # Delete all points associated with a route
+            response = self.supabase.table("POINTS").delete().eq("id", route_id).execute()
+            return response.data
+        except Exception as e:
+            raise Exception(f"Failed to delete points for route: {e}")

@@ -1,8 +1,8 @@
 from fastapi import FastAPI, Response, Depends, HTTPException, status, Request
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from pydantic import BaseModel, Field
-from datetime import date as Date, time as Time
-from typing import Optional
+from datetime import date as Date, time as Time, datetime
+from typing import Optional, List
 from supabase_handler.supabase_handler import supabase_handler
 
 class ActivityCreate(BaseModel):
@@ -65,6 +65,97 @@ class ActivityResponse(BaseModel):
             }
         }
 
+class RouteCreate(BaseModel):
+    startedAt: datetime = Field(..., description="Timestamp when the route started", example="2025-11-24T10:00:00Z")
+    endedAt: datetime = Field(..., description="Timestamp when the route ended", example="2025-11-24T11:30:00Z")
+    distanceKm: float = Field(..., description="Total distance covered in kilometers", example=5.5, gt=0)
+    avgSpeedKmh: float = Field(..., description="Average speed in kilometers per hour", example=12.5, gt=0)
+
+    class Config:
+        json_schema_extra = {
+            "example": {
+                "startedAt": "2025-11-24T10:00:00Z",
+                "endedAt": "2025-11-24T11:30:00Z",
+                "distanceKm": 5.5,
+                "avgSpeedKmh": 12.5
+            }
+        }
+
+class RouteUpdate(BaseModel):
+    startedAt: Optional[datetime] = Field(None, description="Timestamp when the route started")
+    endedAt: Optional[datetime] = Field(None, description="Timestamp when the route ended")
+    distanceKm: Optional[float] = Field(None, description="Total distance covered in kilometers", gt=0)
+    avgSpeedKmh: Optional[float] = Field(None, description="Average speed in kilometers per hour", gt=0)
+
+    class Config:
+        json_schema_extra = {
+            "example": {
+                "distanceKm": 6.0,
+                "avgSpeedKmh": 13.0
+            }
+        }
+
+class RouteResponse(BaseModel):
+    id: int = Field(..., description="Unique identifier for the route")
+    startedAt: datetime = Field(..., description="Timestamp when the route started")
+    endedAt: datetime = Field(..., description="Timestamp when the route ended")
+    distanceKm: float = Field(..., description="Total distance covered in kilometers")
+    avgSpeedKmh: float = Field(..., description="Average speed in kilometers per hour")
+
+    class Config:
+        json_schema_extra = {
+            "example": {
+                "id": 1,
+                "startedAt": "2025-11-24T10:00:00Z",
+                "endedAt": "2025-11-24T11:30:00Z",
+                "distanceKm": 5.5,
+                "avgSpeedKmh": 12.5
+            }
+        }
+
+class PointCreate(BaseModel):
+    lat: float = Field(..., description="Latitude coordinate", example=40.7128)
+    lng: float = Field(..., description="Longitude coordinate", example=-74.0060)
+    timestamp: datetime = Field(..., description="Timestamp when the point was recorded", example="2025-11-24T10:00:00Z")
+
+    class Config:
+        json_schema_extra = {
+            "example": {
+                "lat": 40.7128,
+                "lng": -74.0060,
+                "timestamp": "2025-11-24T10:00:00Z"
+            }
+        }
+
+class PointUpdate(BaseModel):
+    lat: Optional[float] = Field(None, description="Latitude coordinate")
+    lng: Optional[float] = Field(None, description="Longitude coordinate")
+    timestamp: Optional[datetime] = Field(None, description="Timestamp when the point was recorded")
+
+    class Config:
+        json_schema_extra = {
+            "example": {
+                "lat": 40.7130,
+                "lng": -74.0062
+            }
+        }
+
+class PointResponse(BaseModel):
+    id: int = Field(..., description="Unique identifier for the point")
+    lat: float = Field(..., description="Latitude coordinate")
+    lng: float = Field(..., description="Longitude coordinate")
+    timestamp: datetime = Field(..., description="Timestamp when the point was recorded")
+
+    class Config:
+        json_schema_extra = {
+            "example": {
+                "id": 1,
+                "lat": 40.7128,
+                "lng": -74.0060,
+                "timestamp": "2025-11-24T10:00:00Z"
+            }
+        }
+
 tags_metadata = [
     {
         "name": "Authentication",
@@ -73,6 +164,14 @@ tags_metadata = [
     {
         "name": "Activities",
         "description": "Manage user activities. All endpoints require JWT authentication.",
+    },
+    {
+        "name": "Routes",
+        "description": "Manage GPS routes with timing and distance information. All endpoints require JWT authentication.",
+    },
+    {
+        "name": "Points",
+        "description": "Manage GPS coordinate points for routes. All endpoints require JWT authentication.",
     },
     {
         "name": "Health",
@@ -405,3 +504,344 @@ def delete_activity(activity_id: int, user_claims: dict = Depends(JWTBearer())):
 
     result = supabase.delete_activity(activity_id, user_id)
     return {"message": "Activity deleted successfully", "data": result}
+
+# ROUTE endpoints
+@app.post(
+    "/routes/",
+    response_model=RouteResponse,
+    tags=["Routes"],
+    summary="Create route",
+    description="Create a new GPS route with timing and distance information. Requires JWT authentication.",
+    responses={
+        200: {
+            "description": "Route created successfully"
+        },
+        401: {
+            "description": "Invalid or missing authentication"
+        },
+        403: {
+            "description": "Invalid JWT token"
+        },
+        500: {
+            "description": "Failed to create route"
+        }
+    }
+)
+def create_route(route: RouteCreate, user_claims: dict = Depends(JWTBearer())):
+    user_id = user_claims.get("sub")
+    if not user_id:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid user")
+
+    route_data = route.model_dump()
+    route_data["startedAt"] = route_data["startedAt"].isoformat()
+    route_data["endedAt"] = route_data["endedAt"].isoformat()
+
+    result = supabase.create_route(route_data)
+    if not result:
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Failed to create route")
+    return result
+
+@app.get(
+    "/routes/",
+    tags=["Routes"],
+    summary="Get all routes",
+    description="Retrieve all GPS routes. Requires JWT authentication.",
+    responses={
+        200: {
+            "description": "Routes retrieved successfully"
+        },
+        401: {
+            "description": "Invalid or missing authentication"
+        },
+        403: {
+            "description": "Invalid JWT token"
+        }
+    }
+)
+def get_routes(user_claims: dict = Depends(JWTBearer())):
+    user_id = user_claims.get("sub")
+    if not user_id:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid user")
+
+    routes = supabase.get_all_routes()
+    return {"routes": routes}
+
+@app.get(
+    "/routes/{route_id}",
+    response_model=RouteResponse,
+    tags=["Routes"],
+    summary="Get route by ID",
+    description="Retrieve a specific route by its ID. Requires JWT authentication.",
+    responses={
+        200: {
+            "description": "Route retrieved successfully"
+        },
+        401: {
+            "description": "Invalid or missing authentication"
+        },
+        403: {
+            "description": "Invalid JWT token"
+        },
+        404: {
+            "description": "Route not found"
+        }
+    }
+)
+def get_route(route_id: int, user_claims: dict = Depends(JWTBearer())):
+    user_id = user_claims.get("sub")
+    if not user_id:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid user")
+
+    route = supabase.get_route_by_id(route_id)
+    if not route:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Route not found")
+    return route
+
+@app.put(
+    "/routes/{route_id}",
+    response_model=RouteResponse,
+    tags=["Routes"],
+    summary="Update route",
+    description="Update an existing route. Only provided fields will be updated. Requires JWT authentication.",
+    responses={
+        200: {
+            "description": "Route updated successfully"
+        },
+        401: {
+            "description": "Invalid or missing authentication"
+        },
+        403: {
+            "description": "Invalid JWT token"
+        },
+        404: {
+            "description": "Route not found"
+        }
+    }
+)
+def update_route(route_id: int, route: RouteUpdate, user_claims: dict = Depends(JWTBearer())):
+    user_id = user_claims.get("sub")
+    if not user_id:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid user")
+
+    route_data = route.model_dump(exclude_unset=True)
+    if "startedAt" in route_data and route_data["startedAt"]:
+        route_data["startedAt"] = route_data["startedAt"].isoformat()
+    if "endedAt" in route_data and route_data["endedAt"]:
+        route_data["endedAt"] = route_data["endedAt"].isoformat()
+
+    result = supabase.update_route(route_id, route_data)
+    if not result:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Route not found")
+    return result
+
+@app.delete(
+    "/routes/{route_id}",
+    tags=["Routes"],
+    summary="Delete route",
+    description="Delete a route by its ID. Requires JWT authentication.",
+    responses={
+        200: {
+            "description": "Route deleted successfully"
+        },
+        401: {
+            "description": "Invalid or missing authentication"
+        },
+        403: {
+            "description": "Invalid JWT token"
+        }
+    }
+)
+def delete_route(route_id: int, user_claims: dict = Depends(JWTBearer())):
+    user_id = user_claims.get("sub")
+    if not user_id:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid user")
+
+    result = supabase.delete_route(route_id)
+    return {"message": "Route deleted successfully", "data": result}
+
+# POINTS endpoints
+@app.post(
+    "/points/",
+    response_model=PointResponse,
+    tags=["Points"],
+    summary="Create point",
+    description="Create a new GPS coordinate point. Requires JWT authentication.",
+    responses={
+        200: {
+            "description": "Point created successfully"
+        },
+        401: {
+            "description": "Invalid or missing authentication"
+        },
+        403: {
+            "description": "Invalid JWT token"
+        },
+        500: {
+            "description": "Failed to create point"
+        }
+    }
+)
+def create_point(point: PointCreate, user_claims: dict = Depends(JWTBearer())):
+    user_id = user_claims.get("sub")
+    if not user_id:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid user")
+
+    point_data = point.model_dump()
+    point_data["timestamp"] = point_data["timestamp"].isoformat()
+
+    result = supabase.create_point(point_data)
+    if not result:
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Failed to create point")
+    return result
+
+@app.post(
+    "/points/batch",
+    tags=["Points"],
+    summary="Create multiple points",
+    description="Create multiple GPS coordinate points in a single request. Requires JWT authentication.",
+    responses={
+        200: {
+            "description": "Points created successfully"
+        },
+        401: {
+            "description": "Invalid or missing authentication"
+        },
+        403: {
+            "description": "Invalid JWT token"
+        },
+        500: {
+            "description": "Failed to create points"
+        }
+    }
+)
+def create_points_batch(points: List[PointCreate], user_claims: dict = Depends(JWTBearer())):
+    user_id = user_claims.get("sub")
+    if not user_id:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid user")
+
+    points_data = []
+    for point in points:
+        point_dict = point.model_dump()
+        point_dict["timestamp"] = point_dict["timestamp"].isoformat()
+        points_data.append(point_dict)
+
+    result = supabase.create_points_batch(points_data)
+    if not result:
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Failed to create points")
+    return {"message": "Points created successfully", "data": result}
+
+@app.get(
+    "/points/{point_id}",
+    response_model=PointResponse,
+    tags=["Points"],
+    summary="Get point by ID",
+    description="Retrieve a specific GPS point by its ID. Requires JWT authentication.",
+    responses={
+        200: {
+            "description": "Point retrieved successfully"
+        },
+        401: {
+            "description": "Invalid or missing authentication"
+        },
+        403: {
+            "description": "Invalid JWT token"
+        },
+        404: {
+            "description": "Point not found"
+        }
+    }
+)
+def get_point(point_id: int, user_claims: dict = Depends(JWTBearer())):
+    user_id = user_claims.get("sub")
+    if not user_id:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid user")
+
+    point = supabase.get_point_by_id(point_id)
+    if not point:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Point not found")
+    return point
+
+@app.get(
+    "/routes/{route_id}/points",
+    tags=["Points"],
+    summary="Get points for a route",
+    description="Retrieve all GPS points associated with a specific route. Requires JWT authentication.",
+    responses={
+        200: {
+            "description": "Points retrieved successfully"
+        },
+        401: {
+            "description": "Invalid or missing authentication"
+        },
+        403: {
+            "description": "Invalid JWT token"
+        }
+    }
+)
+def get_points_by_route(route_id: int, user_claims: dict = Depends(JWTBearer())):
+    user_id = user_claims.get("sub")
+    if not user_id:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid user")
+
+    points = supabase.get_points_by_route(route_id)
+    return {"points": points}
+
+@app.put(
+    "/points/{point_id}",
+    response_model=PointResponse,
+    tags=["Points"],
+    summary="Update point",
+    description="Update an existing GPS point. Only provided fields will be updated. Requires JWT authentication.",
+    responses={
+        200: {
+            "description": "Point updated successfully"
+        },
+        401: {
+            "description": "Invalid or missing authentication"
+        },
+        403: {
+            "description": "Invalid JWT token"
+        },
+        404: {
+            "description": "Point not found"
+        }
+    }
+)
+def update_point(point_id: int, point: PointUpdate, user_claims: dict = Depends(JWTBearer())):
+    user_id = user_claims.get("sub")
+    if not user_id:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid user")
+
+    point_data = point.model_dump(exclude_unset=True)
+    if "timestamp" in point_data and point_data["timestamp"]:
+        point_data["timestamp"] = point_data["timestamp"].isoformat()
+
+    result = supabase.update_point(point_id, point_data)
+    if not result:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Point not found")
+    return result
+
+@app.delete(
+    "/points/{point_id}",
+    tags=["Points"],
+    summary="Delete point",
+    description="Delete a GPS point by its ID. Requires JWT authentication.",
+    responses={
+        200: {
+            "description": "Point deleted successfully"
+        },
+        401: {
+            "description": "Invalid or missing authentication"
+        },
+        403: {
+            "description": "Invalid JWT token"
+        }
+    }
+)
+def delete_point(point_id: int, user_claims: dict = Depends(JWTBearer())):
+    user_id = user_claims.get("sub")
+    if not user_id:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid user")
+
+    result = supabase.delete_point(point_id)
+    return {"message": "Point deleted successfully", "data": result}
