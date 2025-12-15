@@ -2,6 +2,7 @@ import React, {useMemo, useState} from "react";
 import {SafeAreaView, StatusBar, StyleSheet, View, Text} from "react-native";
 import Activity from "./page/Activity";
 import RecordDrive from "./page/RecordDrive";
+import Groups from "./page/Groups";
 import BottomTabs, {TabKey} from "./components/BottomTabs";
 import UserProfile from "./page/UserProfile";
 import {getUserProfile} from "./api/UserProfile";
@@ -33,12 +34,7 @@ export default function App() {
                 />
             );
         case "groups":
-            return (
-                <PlaceholderScreen
-                    title="Groups"
-                    description="Team up with friends, share rides, and compare stats."
-                />
-            );
+            return <Groups />;
         case "you":
         default:
             return (
