@@ -3,6 +3,8 @@ import {SafeAreaView, StatusBar, StyleSheet, View, Text} from "react-native";
 import Activity from "./page/Activity";
 import RecordDrive from "./page/RecordDrive";
 import BottomTabs, {TabKey} from "./components/BottomTabs";
+import UserProfile from "./page/UserProfile";
+import {getUserProfile} from "./api/UserProfile";
 
 function PlaceholderScreen({ title, description }: { title: string; description: string }) {
     return (
@@ -15,6 +17,7 @@ function PlaceholderScreen({ title, description }: { title: string; description:
 
 export default function App() {
     const [activeTab, setActiveTab] = useState<TabKey>("home");
+    const userProfile = useMemo(() => getUserProfile(), []);
 
     const content = useMemo(() => {
         switch (activeTab) {
@@ -39,13 +42,12 @@ export default function App() {
         case "you":
         default:
             return (
-                <PlaceholderScreen
-                    title="You"
-                    description="Track your recent activity and tune your profile."
-                />
+                <View style={styles.profileScreen}>
+                    <UserProfile user={userProfile} />
+                </View>
             );
         }
-    }, [activeTab]);
+    }, [activeTab, userProfile]);
 
     return (
         <SafeAreaView style={styles.container}>
@@ -80,5 +82,10 @@ const styles = StyleSheet.create({
         color: "#aaaaaa",
         fontSize: 14,
         textAlign: "center",
+    },
+    profileScreen: {
+        flex: 1,
+        alignItems: "center",
+        justifyContent: "center",
     },
 });
