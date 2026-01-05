@@ -7,9 +7,30 @@ import {
     Alert,
     ActivityIndicator,
 } from "react-native";
-import MapView, { Polyline, PROVIDER_GOOGLE, Region } from "react-native-maps";
+import type { Region } from "react-native-maps";
 import * as Location from "expo-location";
 import useDriveRecorder from "../hooks/useDriveRecorder";
+
+type MapsModule = typeof import("react-native-maps");
+
+let mapsModule: MapsModule | null = null;
+
+try {
+    // Dynamic require prevents crashes when the native module is missing.
+    mapsModule = require("react-native-maps");
+} catch (error) {
+    if (__DEV__) {
+        console.warn(
+            "react-native-maps is unavailable in this runtime. Drive recording will render a fallback.",
+            error,
+        );
+    }
+}
+
+const MapView = mapsModule?.default;
+const Marker = mapsModule?.Marker;
+const Polyline = mapsModule?.Polyline;
+const PROVIDER_GOOGLE = mapsModule?.PROVIDER_GOOGLE;
 
 type Props = {
     onFinished?: () => void;
@@ -198,23 +219,50 @@ const RecordDriveScreen: React.FC<Props> = ({ onFinished, onSaved }) => {
         );
     };
 
+    const canRenderMap = Boolean(MapView && Marker && Polyline && PROVIDER_GOOGLE);
+    const MapViewComponent = MapView as React.ComponentType<any>;
+    const MarkerComponent = Marker as React.ComponentType<any>;
+    const PolylineComponent = Polyline as React.ComponentType<any>;
+
     return (
         <View style={styles.container}>
-            <MapView
-                style={styles.map}
-                provider={PROVIDER_GOOGLE}
-                region={region}
-                customMapStyle={darkMapStyle}
-                showsUserLocation
-            >
-                {points.length > 1 && (
-                    <Polyline
-                        coordinates={points.map((p) => ({ latitude: p.latitude, longitude: p.longitude }))}
-                        strokeWidth={5}
-                        strokeColor="#FF6A00"
-                    />
-                )}
-            </MapView>
+            {canRenderMap ? (
+                <MapViewComponent
+                    style={styles.map}
+                    provider={PROVIDER_GOOGLE}
+                    region={region}
+                    customMapStyle={darkMapStyle}
+                    showsUserLocation
+                >
+                    {points.length > 1 && (
+                        <PolylineComponent
+                            coordinates={points.map((p) => ({
+                                latitude: p.latitude,
+                                longitude: p.longitude,
+                            }))}
+                            strokeWidth={5}
+                            strokeColor="#FF6A00"
+                        />
+                    )}
+                    {latestPoint && (
+                        <MarkerComponent
+                            coordinate={{
+                                latitude: latestPoint.latitude,
+                                longitude: latestPoint.longitude,
+                            }}
+                        />
+                    )}
+                </MapViewComponent>
+            ) : (
+                <View style={styles.mapFallback}>
+                    <Text style={styles.mapFallbackTitle}>Map unavailable</Text>
+                    <Text style={styles.mapFallbackText}>
+                        This build does not include the native module required for maps. Create a custom
+                        development client or switch to an Expo Go build with the classic architecture to
+                        preview your route.
+                    </Text>
+                </View>
+            )}
 
             <View style={styles.overlay}>
                 {error && (
@@ -367,5 +415,27 @@ const styles = StyleSheet.create({
         color: "#fff",
         fontSize: 16,
         fontWeight: "500",
+    },
+    mapFallback: {
+        flex: 1,
+        backgroundColor: "#0f0f0f",
+        alignItems: "center",
+        justifyContent: "center",
+        padding: 24,
+        borderBottomWidth: StyleSheet.hairlineWidth,
+        borderBottomColor: "#1f1f1f",
+    },
+    mapFallbackTitle: {
+        color: "#fff",
+        fontSize: 18,
+        fontWeight: "600",
+        marginBottom: 8,
+        textAlign: "center",
+    },
+    mapFallbackText: {
+        color: "#9fa0a5",
+        fontSize: 14,
+        lineHeight: 20,
+        textAlign: "center",
     },
 });
