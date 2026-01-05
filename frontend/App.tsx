@@ -85,7 +85,6 @@ const styles = StyleSheet.create({
     },
     profileScreen: {
         flex: 1,
-        alignItems: "center",
-        justifyContent: "center",
+        backgroundColor: "#101010",
     },
 });

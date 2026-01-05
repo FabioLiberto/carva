@@ -7,13 +7,31 @@ import {
     Alert,
     ActivityIndicator,
 } from "react-native";
-import MapView, { Marker, Polyline, PROVIDER_GOOGLE, Region } from "react-native-maps";
+import type { Region } from "react-native-maps";
 import useDriveRecorder from "../hooks/useDriveRecorder";
 
 type Props = {
     onFinished?: () => void;
     onSaved?: () => void;
 };
+
+type MapsModule = typeof import("react-native-maps");
+
+let mapsModule: MapsModule | undefined;
+
+try {
+    // eslint-disable-next-line @typescript-eslint/no-var-requires
+    mapsModule = require("react-native-maps") as MapsModule;
+} catch (error) {
+    console.warn(
+        "[RecordDrive] react-native-maps unavailable. Rendering fallback UI. Install a dev build to enable maps.",
+    );
+}
+
+const MapViewComponent = mapsModule?.default;
+const MapMarkerComponent = mapsModule?.Marker;
+const MapPolylineComponent = mapsModule?.Polyline;
+const MAP_PROVIDER_GOOGLE = mapsModule?.PROVIDER_GOOGLE;
 
 const FALLBACK_REGION: Region = {
     latitude: 47.3769,
@@ -67,6 +85,9 @@ const RecordDriveScreen: React.FC<Props> = ({ onFinished, onSaved }) => {
     }, [latestPoint]);
 
     const distanceKm = distanceMeters / 1000;
+
+    const isMapAvailable =
+        Boolean(MapViewComponent && MapMarkerComponent && MapPolylineComponent);
 
     const formattedDuration = useMemo(() => {
         const hours = Math.floor(durationSeconds / 3600);
@@ -168,30 +189,53 @@ const RecordDriveScreen: React.FC<Props> = ({ onFinished, onSaved }) => {
 
     return (
         <View style={styles.container}>
-            <MapView
-                style={styles.map}
-                provider={PROVIDER_GOOGLE}
-                region={region}
-                customMapStyle={darkMapStyle}
-            >
-                {points.length > 1 && (
-                    <Polyline
-                        coordinates={points.map((p) => ({ latitude: p.latitude, longitude: p.longitude }))}
-                        strokeWidth={5}
-                        strokeColor="#FF6A00"
-                    />
-                )}
-                {latestPoint && (
-                    <Marker
-                        coordinate={{
-                            latitude: latestPoint.latitude,
-                            longitude: latestPoint.longitude,
-                        }}
-                    />
-                )}
-            </MapView>
+            {isMapAvailable && MapViewComponent ? (
+                <MapViewComponent
+                    style={styles.map}
+                    provider={MAP_PROVIDER_GOOGLE}
+                    region={region}
+                    customMapStyle={darkMapStyle}
+                >
+                    {points.length > 1 &&
+                        MapPolylineComponent && (
+                            <MapPolylineComponent
+                                coordinates={points.map((p) => ({
+                                    latitude: p.latitude,
+                                    longitude: p.longitude,
+                                }))}
+                                strokeWidth={5}
+                                strokeColor="#FF6A00"
+                            />
+                        )}
+                    {latestPoint &&
+                        MapMarkerComponent && (
+                            <MapMarkerComponent
+                                coordinate={{
+                                    latitude: latestPoint.latitude,
+                                    longitude: latestPoint.longitude,
+                                }}
+                            />
+                        )}
+                </MapViewComponent>
+            ) : (
+                <View style={[styles.map, styles.mapFallback]}>
+                    <Text style={styles.mapFallbackTitle}>Map unavailable</Text>
+                    <Text style={styles.mapFallbackSubtitle}>
+                        Install the development build or run on a simulator with maps to
+                        preview your route.
+                    </Text>
+                </View>
+            )}
 
             <View style={styles.overlay}>
+                {!isMapAvailable && (
+                    <View style={styles.infoBanner}>
+                        <Text style={styles.infoText}>
+                            Live map preview disabled while using Expo Go. Recording and
+                            stats continue to work.
+                        </Text>
+                    </View>
+                )}
                 {error && (
                     <View style={styles.errorBanner}>
                         <Text style={styles.errorText}>{error}</Text>
@@ -256,6 +300,25 @@ const styles = StyleSheet.create({
     map: {
         flex: 1,
     },
+    mapFallback: {
+        alignItems: "center",
+        justifyContent: "center",
+        paddingHorizontal: 24,
+        backgroundColor: "#111",
+    },
+    mapFallbackTitle: {
+        color: "#ffffff",
+        fontSize: 20,
+        fontWeight: "600",
+        marginBottom: 8,
+        textAlign: "center",
+    },
+    mapFallbackSubtitle: {
+        color: "#b0b0b0",
+        fontSize: 14,
+        textAlign: "center",
+        lineHeight: 20,
+    },
     overlay: {
         position: "absolute",
         left: 0,
@@ -273,6 +336,17 @@ const styles = StyleSheet.create({
     },
     errorText: {
         color: "#ff8a80",
+        fontSize: 13,
+        textAlign: "center",
+    },
+    infoBanner: {
+        backgroundColor: "#1f2633",
+        borderRadius: 8,
+        padding: 10,
+        marginBottom: 12,
+    },
+    infoText: {
+        color: "#c2d4f5",
         fontSize: 13,
         textAlign: "center",
     },
