@@ -6,6 +6,7 @@ export type TrackPoint = {
     longitude: number;
     timestamp: number;
     speedMs?: number | null;
+    altitudeMeters?: number | null;
 };
 
 export type RecorderState = "idle" | "recording" | "paused" | "finished";
@@ -96,6 +97,7 @@ export function useDriveRecorder(): RecorderHook {
                 longitude,
                 timestamp,
                 speedMs: speed,
+                altitudeMeters: location.coords.altitude ?? null,
             },
         ]);
     }, []);
