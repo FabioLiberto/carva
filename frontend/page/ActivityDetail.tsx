@@ -229,11 +229,17 @@ const ActivityDetail: React.FC<Props> = ({ activity, points, onBack }) => {
     return (
         <View style={styles.container}>
             <View style={styles.header}>
-                <TouchableOpacity onPress={onBack} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
-                    <Text style={styles.backText}>← Back</Text>
+                <TouchableOpacity
+                    onPress={onBack}
+                    accessibilityRole="button"
+                    accessibilityLabel="Go back"
+                    style={styles.backButton}
+                    hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                >
+                    <Text style={styles.backIcon}>‹</Text>
                 </TouchableOpacity>
                 <Text style={styles.headerTitle} numberOfLines={1}>{activity.title}</Text>
-                <View style={{ width: 48 }} />
+                <View style={{ width: 36 }} />
             </View>
 
             <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
@@ -254,7 +260,9 @@ const ActivityDetail: React.FC<Props> = ({ activity, points, onBack }) => {
 
                 <View style={styles.card}>
                     <Text style={styles.cardTitle}>Route</Text>
-                    {MapView && (typeof activity.latitude === "number" && typeof activity.longitude === "number") ? (
+                    {driveImages[activity.route] ? (
+                        <Image source={driveImages[activity.route]} style={styles.routeImage} resizeMode="cover" />
+                    ) : MapView ? (
                         <View style={styles.mapWrapper}>
                             <MapView
                                 style={styles.map}
@@ -284,7 +292,7 @@ const ActivityDetail: React.FC<Props> = ({ activity, points, onBack }) => {
                                         />
                                     </>
                                 )}
-                                {(!points || points.length === 0) && Marker && (
+                                {(!points || points.length === 0) && Marker && typeof activity.latitude === 'number' && typeof activity.longitude === 'number' && (
                                     <Marker
                                         coordinate={{ latitude: activity.latitude!, longitude: activity.longitude! }}
                                         pinColor="#FF6A00"
@@ -310,8 +318,6 @@ const ActivityDetail: React.FC<Props> = ({ activity, points, onBack }) => {
                                 ) : null;
                             })()}
                         </View>
-                    ) : driveImages[activity.route] ? (
-                        <Image source={driveImages[activity.route]} style={styles.routeImage} resizeMode="cover" />
                     ) : (
                         <View style={styles.mapFallback}>
                             <Text style={styles.mapFallbackTitle}>Preview unavailable</Text>
@@ -377,10 +383,20 @@ const styles = StyleSheet.create({
         borderBottomWidth: StyleSheet.hairlineWidth,
         borderBottomColor: "#222",
     },
-    backText: {
-        color: "#FF6A00",
-        fontSize: 16,
-        width: 48,
+    backButton: {
+        width: 36,
+        height: 36,
+        borderRadius: 18,
+        backgroundColor: "#1a1a1a",
+        alignItems: "center",
+        justifyContent: "center",
+        borderWidth: StyleSheet.hairlineWidth,
+        borderColor: "#2a2a2a",
+    },
+    backIcon: {
+        color: "#ffffff",
+        fontSize: 20,
+        marginTop: -2,
     },
     headerTitle: {
         color: "#fff",
