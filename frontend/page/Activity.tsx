@@ -26,6 +26,8 @@ export const dummyData: ActivityModel[] = [
         duration: 45, // minutes
         distance: 60, // km
         averageSpeed: 80, // km/h
+        latitude: 47.3769,
+        longitude: 8.5417,
     },
     {
         id: "2",
@@ -36,6 +38,8 @@ export const dummyData: ActivityModel[] = [
         duration: 75,
         distance: 100,
         averageSpeed: 80,
+        latitude: 47.3891,
+        longitude: 8.5170,
     },
 ];
 

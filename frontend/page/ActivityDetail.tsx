@@ -13,21 +13,7 @@ import type { TrackPoint } from "../hooks/useDriveRecorder";
 import type { Region } from "react-native-maps";
 import { darkMapStyle } from "../components/mapStyle";
 import { driveImages } from "../components/driveImages";
-
-// Guarded maps import to avoid crashes in Expo Go without native module
-let RNMaps: typeof import("react-native-maps") | null = null;
-try {
-    // eslint-disable-next-line @typescript-eslint/no-var-requires
-    RNMaps = require("react-native-maps");
-} catch (e) {
-    if (__DEV__) {
-        console.warn("react-native-maps not available; map view will render a fallback.");
-    }
-}
-const MapView = RNMaps?.default as any;
-const Marker = RNMaps?.Marker as any;
-const Polyline = RNMaps?.Polyline as any;
-const PROVIDER_GOOGLE = RNMaps?.PROVIDER_GOOGLE as any;
+import { MapView, Marker, Polyline, PROVIDER_GOOGLE } from "../components/MapKit";
 
 type Props = {
     activity: ActivityModel;
@@ -103,6 +89,19 @@ function regionFromPoints(points?: TrackPoint[]): Region {
         latitudeDelta: latDelta,
         longitudeDelta: lonDelta,
     };
+}
+
+function regionForActivity(activity: ActivityModel, points?: TrackPoint[]): Region {
+    if (typeof activity.latitude === "number" && typeof activity.longitude === "number") {
+        return {
+            latitude: activity.latitude,
+            longitude: activity.longitude,
+            latitudeDelta: 0.01,
+            longitudeDelta: 0.01,
+        };
+    }
+    if (points && points.length) return regionFromPoints(points);
+    return FALLBACK_REGION;
 }
 
 function computeStats(series: { t: number; v: number }[], activity: ActivityModel) {
@@ -255,14 +254,12 @@ const ActivityDetail: React.FC<Props> = ({ activity, points, onBack }) => {
 
                 <View style={styles.card}>
                     <Text style={styles.cardTitle}>Route</Text>
-                    {driveImages[activity.route] ? (
-                        <Image source={driveImages[activity.route]} style={styles.routeImage} resizeMode="cover" />
-                    ) : MapView && Polyline ? (
+                    {MapView && (typeof activity.latitude === "number" && typeof activity.longitude === "number") ? (
                         <View style={styles.mapWrapper}>
                             <MapView
                                 style={styles.map}
                                 provider={PROVIDER_GOOGLE ?? undefined}
-                                initialRegion={regionFromPoints(points)}
+                                initialRegion={regionForActivity(activity, points)}
                                 customMapStyle={darkMapStyle}
                                 showsUserLocation={false}
                             >
@@ -287,20 +284,34 @@ const ActivityDetail: React.FC<Props> = ({ activity, points, onBack }) => {
                                         />
                                     </>
                                 )}
+                                {(!points || points.length === 0) && Marker && (
+                                    <Marker
+                                        coordinate={{ latitude: activity.latitude!, longitude: activity.longitude! }}
+                                        pinColor="#FF6A00"
+                                        title={activity.title}
+                                    />
+                                )}
                             </MapView>
-                            {points && points.length > 0 && (
-                                <View style={styles.mapOverlay}>
-                                    <Text style={styles.mapOverlayText}>
-                                        Lat: {points[points.length - 1].latitude.toFixed(5)}  Lon: {points[points.length - 1].longitude.toFixed(5)}
-                                    </Text>
-                                    {points[points.length - 1].altitudeMeters != null && (
+                            {(() => {
+                                const latest = points && points.length > 0
+                                    ? { lat: points[points.length - 1].latitude, lon: points[points.length - 1].longitude, alt: points[points.length - 1].altitudeMeters }
+                                    : (typeof activity.latitude === "number" && typeof activity.longitude === "number"
+                                        ? { lat: activity.latitude, lon: activity.longitude, alt: null as number | null }
+                                        : null);
+                                return latest ? (
+                                    <View style={styles.mapOverlay}>
                                         <Text style={styles.mapOverlayText}>
-                                            Alt: {Math.round(points[points.length - 1].altitudeMeters!)} m
+                                            Lat: {latest.lat.toFixed(5)}  Lon: {latest.lon.toFixed(5)}
                                         </Text>
-                                    )}
-                                </View>
-                            )}
+                                        {latest.alt != null && (
+                                            <Text style={styles.mapOverlayText}>Alt: {Math.round(latest.alt)} m</Text>
+                                        )}
+                                    </View>
+                                ) : null;
+                            })()}
                         </View>
+                    ) : driveImages[activity.route] ? (
+                        <Image source={driveImages[activity.route]} style={styles.routeImage} resizeMode="cover" />
                     ) : (
                         <View style={styles.mapFallback}>
                             <Text style={styles.mapFallbackTitle}>Preview unavailable</Text>

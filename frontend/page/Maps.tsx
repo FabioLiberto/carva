@@ -9,19 +9,7 @@ import {
     View,
 } from "react-native";
 import type { Region } from "react-native-maps";
-// Guard react-native-maps import so Expo Go (without native module) won't crash
-let RNMaps: typeof import("react-native-maps") | null = null;
-try {
-    // eslint-disable-next-line @typescript-eslint/no-var-requires
-    RNMaps = require("react-native-maps");
-} catch (e) {
-    if (__DEV__) {
-        console.warn("react-native-maps native module not available in this runtime.");
-    }
-}
-const MapView = RNMaps?.default as any;
-const Marker = RNMaps?.Marker as any;
-const PROVIDER_GOOGLE = RNMaps?.PROVIDER_GOOGLE as any;
+import { MapView, Marker, PROVIDER_GOOGLE, isAvailable as mapAvailable } from "../components/MapKit";
 import * as Location from "expo-location";
 import { darkMapStyle } from "../components/mapStyle";
 
@@ -135,7 +123,7 @@ const MapsScreen: React.FC = () => {
         });
     };
 
-    const canRenderMap = Boolean(MapView && Marker && PROVIDER_GOOGLE);
+    const canRenderMap = mapAvailable();
 
     return (
         <View style={styles.container}>

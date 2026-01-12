@@ -1,5 +1,6 @@
 import React, {useMemo, useState} from "react";
-import {SafeAreaView, StatusBar, StyleSheet, View, Text} from "react-native";
+import { StatusBar, StyleSheet, View, Text } from "react-native";
+import { SafeAreaProvider, SafeAreaView } from "react-native-safe-area-context";
 import Activity from "./page/Activity";
 import RecordDrive from "./page/RecordDrive";
 import Groups from "./page/Groups";
@@ -42,11 +43,13 @@ export default function App() {
     }, [activeTab, userProfile]);
 
     return (
-        <SafeAreaView style={styles.container}>
-            <StatusBar barStyle="light-content"/>
-            <View style={styles.screen}>{content}</View>
-            <BottomTabs activeTab={activeTab} onTabPress={setActiveTab} />
-        </SafeAreaView>
+        <SafeAreaProvider>
+            <SafeAreaView style={styles.container} edges={["top", "bottom"]}>
+                <StatusBar barStyle="light-content"/>
+                <View style={styles.screen}>{content}</View>
+                <BottomTabs activeTab={activeTab} onTabPress={setActiveTab} />
+            </SafeAreaView>
+        </SafeAreaProvider>
     );
 }
 

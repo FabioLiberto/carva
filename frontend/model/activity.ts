@@ -7,4 +7,6 @@ export type Activity = {
     duration: number;
     distance: number;
     averageSpeed: number;
+    latitude?: number;
+    longitude?: number;
 }

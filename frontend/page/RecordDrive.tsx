@@ -11,45 +11,17 @@ import type { Region } from "react-native-maps";
 import * as Location from "expo-location";
 import useDriveRecorder from "../hooks/useDriveRecorder";
 
-type MapsModule = typeof import("react-native-maps");
-
-let mapsModule: MapsModule | null = null;
-
-try {
-    // Dynamic require prevents crashes when the native module is missing.
-    mapsModule = require("react-native-maps");
-} catch (error) {
-    if (__DEV__) {
-        console.warn(
-            "react-native-maps is unavailable in this runtime. Drive recording will render a fallback.",
-            error,
-        );
-    }
-}
-
-const MapView = mapsModule?.default;
-const Marker = mapsModule?.Marker;
-const Polyline = mapsModule?.Polyline;
-const PROVIDER_GOOGLE = mapsModule?.PROVIDER_GOOGLE;
+import { MapView, Marker, Polyline, PROVIDER_GOOGLE, isAvailable as mapAvailable } from "../components/MapKit";
 
 type Props = {
     onFinished?: () => void;
     onSaved?: () => void;
 };
 
-try {
-    // eslint-disable-next-line @typescript-eslint/no-var-requires
-    mapsModule = require("react-native-maps") as MapsModule;
-} catch (error) {
-    console.warn(
-        "[RecordDrive] react-native-maps unavailable. Rendering fallback UI. Install a dev build to enable maps.",
-    );
-}
-
-const MapViewComponent = mapsModule?.default;
-const MapMarkerComponent = mapsModule?.Marker;
-const MapPolylineComponent = mapsModule?.Polyline;
-const MAP_PROVIDER_GOOGLE = mapsModule?.PROVIDER_GOOGLE;
+const MapViewComponent = MapView as unknown as React.ComponentType<any> | null;
+const MapMarkerComponent = Marker as unknown as React.ComponentType<any> | null;
+const MapPolylineComponent = Polyline as unknown as React.ComponentType<any> | null;
+const MAP_PROVIDER_GOOGLE = PROVIDER_GOOGLE;
 
 const FALLBACK_REGION: Region = {
     latitude: 47.3769,
@@ -135,8 +107,7 @@ const RecordDriveScreen: React.FC<Props> = ({ onFinished, onSaved }) => {
 
     const distanceKm = distanceMeters / 1000;
 
-    const isMapAvailable =
-        Boolean(MapViewComponent && MapMarkerComponent && MapPolylineComponent);
+    const isMapAvailable = mapAvailable();
 
     const formattedDuration = useMemo(() => {
         const hours = Math.floor(durationSeconds / 3600);
@@ -236,8 +207,7 @@ const RecordDriveScreen: React.FC<Props> = ({ onFinished, onSaved }) => {
         );
     };
 
-    const canRenderMap = Boolean(MapView && Marker && Polyline && PROVIDER_GOOGLE);
-    const MapViewComponent = MapView as React.ComponentType<any>;
+    const canRenderMap = isMapAvailable;
     const MarkerComponent = Marker as React.ComponentType<any>;
     const PolylineComponent = Polyline as React.ComponentType<any>;
 
