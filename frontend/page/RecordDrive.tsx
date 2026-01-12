@@ -37,10 +37,6 @@ type Props = {
     onSaved?: () => void;
 };
 
-type MapsModule = typeof import("react-native-maps");
-
-let mapsModule: MapsModule | undefined;
-
 try {
     // eslint-disable-next-line @typescript-eslint/no-var-requires
     mapsModule = require("react-native-maps") as MapsModule;

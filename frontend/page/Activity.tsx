@@ -1,5 +1,5 @@
 // page/Activity.tsx
-import React from "react";
+import React, { useMemo, useState } from "react";
 import {
     View,
     Text,
@@ -7,18 +7,14 @@ import {
     StyleSheet,
     TouchableOpacity,
     Image,
-    ImageSourcePropType,
 } from "react-native";
 
 // Avoid name clash with the component
 import { Activity as ActivityModel } from "../model/activity";
+import ActivityDetail from "./ActivityDetail";
+import type { TrackPoint } from "../hooks/useDriveRecorder";
 
-// All drive images, typed with a string index so TS is happy
-export const driveImages: Record<string, ImageSourcePropType> = {
-    drive_one: require("../assets/drives/drive_one.png"),
-    drive_two: require("../assets/drives/drive_two.png"),
-    // add more here as needed
-};
+import { driveImages } from "../components/driveImages";
 
 export const dummyData: ActivityModel[] = [
     {
@@ -64,11 +60,11 @@ type ActivityCardProps = {
     activity: ActivityModel;
 };
 
-const ActivityCard: React.FC<ActivityCardProps> = ({ activity }) => {
+const ActivityCard: React.FC<ActivityCardProps & { onPress?: () => void }> = ({ activity, onPress }) => {
     const imageSource = driveImages[activity.route];
 
     return (
-        <TouchableOpacity activeOpacity={0.7} style={styles.card}>
+        <TouchableOpacity activeOpacity={0.7} style={styles.card} onPress={onPress}>
             {/* Top row: type + title + date */}
             <View style={styles.headerRow}>
                 <View style={styles.iconCircle}>
@@ -125,13 +121,51 @@ const ActivityCard: React.FC<ActivityCardProps> = ({ activity }) => {
 };
 
 const ActivityScreen: React.FC = () => {
+    const [selected, setSelected] = useState<ActivityModel | null>(null);
+
+    const syntheticPoints = useMemo<Record<string, TrackPoint[]>>(() => {
+        // create simple synthetic time series per activity for detail view
+        const out: Record<string, TrackPoint[]> = {};
+        for (const a of dummyData) {
+            const n = 120;
+            const start = Date.now() - a.duration * 60 * 1000;
+            const pts: TrackPoint[] = [];
+            let lat = 47.3769;
+            let lon = 8.5417;
+            for (let i = 0; i < n; i++) {
+                const t = start + (i * a.duration * 60 * 1000) / n;
+                // wander position slightly, speed around avg
+                lat += (Math.random() - 0.5) * 0.0005;
+                lon += (Math.random() - 0.5) * 0.0005;
+                const wobble = Math.sin((i / n) * Math.PI * 4) * (a.averageSpeed * 0.25);
+                const noise = (Math.random() - 0.5) * (a.averageSpeed * 0.15);
+                const kmh = Math.max(0, a.averageSpeed + wobble + noise);
+                pts.push({ latitude: lat, longitude: lon, timestamp: t, speedMs: kmh / 3.6, altitudeMeters: null });
+            }
+            out[a.id] = pts;
+        }
+        return out;
+    }, []);
+
+    if (selected) {
+        return (
+            <ActivityDetail
+                activity={selected}
+                points={syntheticPoints[selected.id]}
+                onBack={() => setSelected(null)}
+            />
+        );
+    }
+
     return (
         <View style={styles.container}>
             <FlatList
                 data={dummyData}
                 keyExtractor={(item) => item.id}
                 contentContainerStyle={styles.listContent}
-                renderItem={({ item }) => <ActivityCard activity={item} />}
+                renderItem={({ item }) => (
+                    <ActivityCard activity={item} onPress={() => setSelected(item)} />
+                )}
                 ItemSeparatorComponent={() => <View style={{ height: 12 }} />}
                 showsVerticalScrollIndicator={false}
             />

@@ -8,8 +8,22 @@ import {
     TouchableOpacity,
     View,
 } from "react-native";
-import MapView, {Marker, PROVIDER_GOOGLE, Region} from "react-native-maps";
+import type { Region } from "react-native-maps";
+// Guard react-native-maps import so Expo Go (without native module) won't crash
+let RNMaps: typeof import("react-native-maps") | null = null;
+try {
+    // eslint-disable-next-line @typescript-eslint/no-var-requires
+    RNMaps = require("react-native-maps");
+} catch (e) {
+    if (__DEV__) {
+        console.warn("react-native-maps native module not available in this runtime.");
+    }
+}
+const MapView = RNMaps?.default as any;
+const Marker = RNMaps?.Marker as any;
+const PROVIDER_GOOGLE = RNMaps?.PROVIDER_GOOGLE as any;
 import * as Location from "expo-location";
+import { darkMapStyle } from "../components/mapStyle";
 
 const FALLBACK_REGION: Region = {
     latitude: 47.3769,
@@ -121,23 +135,36 @@ const MapsScreen: React.FC = () => {
         });
     };
 
+    const canRenderMap = Boolean(MapView && Marker && PROVIDER_GOOGLE);
+
     return (
         <View style={styles.container}>
-            <MapView
-                style={StyleSheet.absoluteFillObject}
-                provider={PROVIDER_GOOGLE}
-                region={region}
-                showsUserLocation
-                customMapStyle={darkMapStyle}
-            >
-                {selected && (
-                    <Marker
-                        coordinate={{ latitude: selected.latitude, longitude: selected.longitude }}
-                        pinColor="#FF6A00"
-                        title={selected.name}
-                    />
-                )}
-            </MapView>
+            {canRenderMap ? (
+                <MapView
+                    style={StyleSheet.absoluteFillObject}
+                    provider={PROVIDER_GOOGLE}
+                    region={region}
+                    showsUserLocation
+                    customMapStyle={darkMapStyle}
+                >
+                    {selected && (
+                        <Marker
+                            coordinate={{ latitude: selected.latitude, longitude: selected.longitude }}
+                            pinColor="#FF6A00"
+                            title={selected.name}
+                        />
+                    )}
+                </MapView>
+            ) : (
+                <View style={styles.mapFallback}>
+                    <Text style={styles.mapFallbackTitle}>Map unavailable</Text>
+                    <Text style={styles.mapFallbackText}>
+                        This runtime doesn’t include react-native-maps. Use a dev build
+                        (expo-dev-client) or switch to expo-maps, or open in a build
+                        with the native module installed.
+                    </Text>
+                </View>
+            )}
 
             <View style={styles.overlay}>
                 <View style={styles.searchRow}>
@@ -265,24 +292,26 @@ const styles = StyleSheet.create({
         textAlign: "center",
         marginVertical: 8,
     },
+    mapFallback: {
+        ...StyleSheet.absoluteFillObject,
+        backgroundColor: "#0f0f0f",
+        alignItems: "center",
+        justifyContent: "center",
+        padding: 24,
+    },
+    mapFallbackTitle: {
+        color: "#fff",
+        fontSize: 18,
+        fontWeight: "600",
+        marginBottom: 8,
+        textAlign: "center",
+    },
+    mapFallbackText: {
+        color: "#9fa0a5",
+        fontSize: 14,
+        lineHeight: 20,
+        textAlign: "center",
+    },
 });
 
-const darkMapStyle = [
-    {
-        elementType: "geometry",
-        stylers: [{ color: "#1d1d1d" }],
-    },
-    {
-        elementType: "labels.text.fill",
-        stylers: [{ color: "#8a8a8a" }],
-    },
-    {
-        elementType: "labels.text.stroke",
-        stylers: [{ color: "#1d1d1d" }],
-    },
-    {
-        featureType: "road",
-        elementType: "geometry",
-        stylers: [{ color: "#2c2c2c" }],
-    },
-];
+// map style moved to components/mapStyle.ts for reuse
