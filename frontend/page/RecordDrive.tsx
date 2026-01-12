@@ -1,4 +1,4 @@
-import React, { useMemo } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import {
     View,
     Text,
@@ -8,7 +8,29 @@ import {
     ActivityIndicator,
 } from "react-native";
 import type { Region } from "react-native-maps";
+import * as Location from "expo-location";
 import useDriveRecorder from "../hooks/useDriveRecorder";
+
+type MapsModule = typeof import("react-native-maps");
+
+let mapsModule: MapsModule | null = null;
+
+try {
+    // Dynamic require prevents crashes when the native module is missing.
+    mapsModule = require("react-native-maps");
+} catch (error) {
+    if (__DEV__) {
+        console.warn(
+            "react-native-maps is unavailable in this runtime. Drive recording will render a fallback.",
+            error,
+        );
+    }
+}
+
+const MapView = mapsModule?.default;
+const Marker = mapsModule?.Marker;
+const Polyline = mapsModule?.Polyline;
+const PROVIDER_GOOGLE = mapsModule?.PROVIDER_GOOGLE;
 
 type Props = {
     onFinished?: () => void;
@@ -59,6 +81,7 @@ async function uploadActivity(payload: UploadPayload) {
 }
 
 const RecordDriveScreen: React.FC<Props> = ({ onFinished, onSaved }) => {
+    const [baseRegion, setBaseRegion] = useState<Region>(FALLBACK_REGION);
     const {
         state,
         points,
@@ -73,16 +96,46 @@ const RecordDriveScreen: React.FC<Props> = ({ onFinished, onSaved }) => {
         endedAt,
     } = useDriveRecorder();
 
+    useEffect(() => {
+        let active = true;
+
+        (async () => {
+            try {
+                const { status } = await Location.requestForegroundPermissionsAsync();
+                if (status !== "granted") return;
+
+                const position = await Location.getCurrentPositionAsync({
+                    accuracy: Location.Accuracy.Balanced,
+                });
+                if (!active) return;
+
+                const { latitude, longitude } = position.coords;
+                setBaseRegion({
+                    latitude,
+                    longitude,
+                    latitudeDelta: 0.01,
+                    longitudeDelta: 0.01,
+                });
+            } catch {
+                // keep fallback region
+            }
+        })();
+
+        return () => {
+            active = false;
+        };
+    }, []);
+
     const latestPoint = points[points.length - 1];
     const region = useMemo<Region>(() => {
-        if (!latestPoint) return FALLBACK_REGION;
+        if (!latestPoint) return baseRegion;
         return {
             latitude: latestPoint.latitude,
             longitude: latestPoint.longitude,
             latitudeDelta: 0.01,
             longitudeDelta: 0.01,
         };
-    }, [latestPoint]);
+    }, [latestPoint, baseRegion]);
 
     const distanceKm = distanceMeters / 1000;
 
@@ -187,41 +240,46 @@ const RecordDriveScreen: React.FC<Props> = ({ onFinished, onSaved }) => {
         );
     };
 
+    const canRenderMap = Boolean(MapView && Marker && Polyline && PROVIDER_GOOGLE);
+    const MapViewComponent = MapView as React.ComponentType<any>;
+    const MarkerComponent = Marker as React.ComponentType<any>;
+    const PolylineComponent = Polyline as React.ComponentType<any>;
+
     return (
         <View style={styles.container}>
-            {isMapAvailable && MapViewComponent ? (
+            {canRenderMap ? (
                 <MapViewComponent
                     style={styles.map}
-                    provider={MAP_PROVIDER_GOOGLE}
+                    provider={PROVIDER_GOOGLE}
                     region={region}
                     customMapStyle={darkMapStyle}
+                    showsUserLocation
                 >
-                    {points.length > 1 &&
-                        MapPolylineComponent && (
-                            <MapPolylineComponent
-                                coordinates={points.map((p) => ({
-                                    latitude: p.latitude,
-                                    longitude: p.longitude,
-                                }))}
-                                strokeWidth={5}
-                                strokeColor="#FF6A00"
-                            />
-                        )}
-                    {latestPoint &&
-                        MapMarkerComponent && (
-                            <MapMarkerComponent
-                                coordinate={{
-                                    latitude: latestPoint.latitude,
-                                    longitude: latestPoint.longitude,
-                                }}
-                            />
-                        )}
+                    {points.length > 1 && (
+                        <PolylineComponent
+                            coordinates={points.map((p) => ({
+                                latitude: p.latitude,
+                                longitude: p.longitude,
+                            }))}
+                            strokeWidth={5}
+                            strokeColor="#FF6A00"
+                        />
+                    )}
+                    {latestPoint && (
+                        <MarkerComponent
+                            coordinate={{
+                                latitude: latestPoint.latitude,
+                                longitude: latestPoint.longitude,
+                            }}
+                        />
+                    )}
                 </MapViewComponent>
             ) : (
-                <View style={[styles.map, styles.mapFallback]}>
+                <View style={styles.mapFallback}>
                     <Text style={styles.mapFallbackTitle}>Map unavailable</Text>
-                    <Text style={styles.mapFallbackSubtitle}>
-                        Install the development build or run on a simulator with maps to
+                    <Text style={styles.mapFallbackText}>
+                        This build does not include the native module required for maps. Create a custom
+                        development client or switch to an Expo Go build with the classic architecture to
                         preview your route.
                     </Text>
                 </View>
@@ -416,5 +474,27 @@ const styles = StyleSheet.create({
         color: "#fff",
         fontSize: 16,
         fontWeight: "500",
+    },
+    mapFallback: {
+        flex: 1,
+        backgroundColor: "#0f0f0f",
+        alignItems: "center",
+        justifyContent: "center",
+        padding: 24,
+        borderBottomWidth: StyleSheet.hairlineWidth,
+        borderBottomColor: "#1f1f1f",
+    },
+    mapFallbackTitle: {
+        color: "#fff",
+        fontSize: 18,
+        fontWeight: "600",
+        marginBottom: 8,
+        textAlign: "center",
+    },
+    mapFallbackText: {
+        color: "#9fa0a5",
+        fontSize: 14,
+        lineHeight: 20,
+        textAlign: "center",
     },
 });

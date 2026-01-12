@@ -2,9 +2,11 @@ import React, {useMemo, useState} from "react";
 import {SafeAreaView, StatusBar, StyleSheet, View, Text} from "react-native";
 import Activity from "./page/Activity";
 import RecordDrive from "./page/RecordDrive";
+import Groups from "./page/Groups";
 import BottomTabs, {TabKey} from "./components/BottomTabs";
 import UserProfile from "./page/UserProfile";
 import {getUserProfile} from "./api/UserProfile";
+import Maps from "./page/Maps";
 
 function PlaceholderScreen({ title, description }: { title: string; description: string }) {
     return (
@@ -26,19 +28,9 @@ export default function App() {
         case "record":
             return <RecordDrive onFinished={() => setActiveTab("home")} />;
         case "maps":
-            return (
-                <PlaceholderScreen
-                    title="Maps"
-                    description="Coming soon: explore nearby drives and routes."
-                />
-            );
+            return <Maps />;
         case "groups":
-            return (
-                <PlaceholderScreen
-                    title="Groups"
-                    description="Team up with friends, share rides, and compare stats."
-                />
-            );
+            return <Groups />;
         case "you":
         default:
             return (
